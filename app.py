@@ -6,7 +6,7 @@ from ai_engine import load_ai_models
 
 # Page configuration
 st.set_page_config(
-    page_title="EduTutor AI",
+    page_title="SmartLearn",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -65,17 +65,20 @@ for module_name in ["dashboard", "courses", "assessments", "community", "qa", "t
         pages[module_name] = module
 
 # Sidebar navigation
-st.sidebar.title("EduTutor AI")
+st.sidebar.title("SmartLearn")
 
 # Display SVG logo
 st.sidebar.markdown("""
 <div style="text-align: center; margin-bottom: 20px;">
     <svg width="150" height="150" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
         <circle cx="100" cy="100" r="80" fill="#4B89DC" />
-        <text x="100" y="115" font-family="Arial" font-size="24" text-anchor="middle" fill="white">EduTutor AI</text>
-        <path d="M60,80 L140,80 M60,120 L140,120" stroke="white" stroke-width="5" />
-        <circle cx="70" cy="100" r="15" fill="white" />
-        <circle cx="130" cy="100" r="15" fill="white" />
+        <text x="100" y="90" font-family="Arial" font-size="20" text-anchor="middle" fill="white">SmartLearn</text>
+        <path d="M50,110 L150,110" stroke="white" stroke-width="3" />
+        <path d="M70,80 L130,80" stroke="white" stroke-width="2" />
+        <path d="M60,120 L140,120" stroke="white" stroke-width="2" />
+        <circle cx="70" cy="95" r="10" fill="white" />
+        <circle cx="130" cy="95" r="10" fill="white" />
+        <path d="M85,130 C95,140 105,140 115,130" stroke="white" stroke-width="2" fill="none" />
     </svg>
 </div>
 """, unsafe_allow_html=True)

@@ -60,19 +60,59 @@ def show_dashboard(db):
     # Get learning statistics for the current user
     stats = get_learning_stats(db, user_id)
     
-    # Create main dashboard layout
-    col1, col2 = st.columns([2, 1])
+    # Create a more organized dashboard layout with tabs
+    tab1, tab2, tab3 = st.tabs(["Overview", "Progress", "Skills"])
     
-    with col1:
+    with tab1:
         # Display summary metrics
         st.subheader("Learning Overview")
         display_summary_metrics(stats)
         
-        # Display progress and score charts
+        # Get course recommendations for the user
+        st.subheader("Recommended Courses")
+        recommended_courses = get_course_recommendations(db, user_id)
+        
+        if recommended_courses:
+            course_cols = st.columns(min(3, len(recommended_courses)))
+            for i, (col, course) in enumerate(zip(course_cols, recommended_courses[:3])):
+                with col:
+                    st.markdown(f"**{course['title']}**")
+                    st.caption(f"{course['category']} | {course['difficulty'].capitalize()}")
+                    st.button("Enroll", key=f"overview_enroll_{i}")
+        else:
+            st.info("Complete more courses to get personalized recommendations.")
+    
+    with tab2:
+        # Display progress charts in a cleaner format
+        st.subheader("Your Learning Progress")
+        
+        # Progress chart
         display_progress_chart(stats["progress_data"])
+        
+        # Quiz scores chart
+        st.subheader("Recent Assessment Results")
         display_score_chart(stats["quiz_data"])
         
-        # Display skill assessment
+        # Display learning streak
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""
+            <div style="background-color:#f0f2f6; padding:20px; border-radius:10px; text-align:center;">
+                <h3 style="margin:0;">🔥 5 days</h3>
+                <p>Learning streak</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""
+            <div style="background-color:#f0f2f6; padding:20px; border-radius:10px; text-align:center;">
+                <h3 style="margin:0;">8 hours</h3>
+                <p>Total learning time</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with tab3:
+        # Display skill assessment with improved layout
         st.subheader("Skill Assessment")
         
         # Sample skill data (in a real implementation, this would come from the database)
@@ -82,57 +122,56 @@ def show_dashboard(db):
         })
         
         display_radar_chart(skills_data)
+        
+        # Display skill breakdown
+        st.subheader("Skill Breakdown")
+        skill_cols = st.columns(3)
+        for i, (skill, level) in enumerate(zip(skills_data["skill"], skills_data["level"])):
+            with skill_cols[i % 3]:
+                st.markdown(f"**{skill}**")
+                st.progress(level/100)
+                st.caption(f"{level}% Proficiency")
     
-    with col2:
-        # Display today's tasks
-        st.subheader("Today's Tasks")
-        if tasks_today:
-            for i, task in enumerate(tasks_today):
-                with st.container():
-                    priority_color = {
-                        "Low": "blue",
-                        "Medium": "orange",
-                        "High": "red"
-                    }.get(task.get("priority", "Medium"), "gray")
-                    
-                    st.markdown(
-                        f"<div style='display:flex;align-items:center;'>"
-                        f"<span style='color:{priority_color};font-weight:bold;margin-right:10px;'>●</span>"
-                        f"<span style='font-weight:bold;'>{task.get('name', 'Untitled Task')}</span>"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
-                    st.caption(f"{task.get('task_type', 'Task')} • {task.get('time_estimate', 0)} mins")
-                    
-                    # Quick complete button
-                    if st.button("✓ Complete", key=f"quick_complete_{i}"):
-                        try:
-                            db["user_tasks"].update_one(
-                                {"_id": task["_id"]},
-                                {"$set": {"completed": True}}
-                            )
-                            st.toast("Task completed!", icon="✅")
-                            st.rerun()
-                        except Exception as e:
-                            st.toast("Could not update task status", icon="⚠️")
-                    
-                    st.divider()
-            
-            st.markdown("[View All Tasks](/?selection=Task+Planner)")
-        else:
-            st.info("No tasks scheduled for today")
-            if st.button("+ Add Tasks"):
-                st.session_state["nav_selection"] = "Task Planner"
-                st.rerun()
+    # Add tasks section to the right sidebar
+    st.sidebar.subheader("Today's Tasks")
+    if tasks_today:
+        for i, task in enumerate(tasks_today):
+            with st.sidebar.container():
+                priority_color = {
+                    "Low": "blue",
+                    "Medium": "orange",
+                    "High": "red"
+                }.get(task.get("priority", "Medium"), "gray")
+                
+                st.sidebar.markdown(
+                    f"<div style='display:flex;align-items:center;'>"
+                    f"<span style='color:{priority_color};font-weight:bold;margin-right:10px;'>●</span>"
+                    f"<span style='font-weight:bold;'>{task.get('name', 'Untitled Task')}</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+                st.sidebar.caption(f"{task.get('task_type', 'Task')} • {task.get('time_estimate', 0)} mins")
+                
+                # Quick complete button
+                if st.sidebar.button("✓ Complete", key=f"quick_complete_{i}"):
+                    try:
+                        db["user_tasks"].update_one(
+                            {"_id": task["_id"]},
+                            {"$set": {"completed": True}}
+                        )
+                        st.toast("Task completed!", icon="✅")
+                        st.rerun()
+                    except Exception as e:
+                        st.toast("Could not update task status", icon="⚠️")
+                
+                st.sidebar.divider()
         
-        # Display learning streak
-        st.subheader("Learning Streak")
-        
-        # Sample streak data (in a real implementation, this would come from the database)
-        streak_days = 5
-        
-        st.markdown(f"### 🔥 {streak_days} days")
-        st.write("Keep up the good work! Consistency is key to learning success.")
+        st.sidebar.markdown("[View All Tasks](/?selection=Task+Planner)")
+    else:
+        st.sidebar.info("No tasks scheduled for today")
+        if st.sidebar.button("+ Add Tasks"):
+            st.session_state["nav_selection"] = "Task Planner"
+            st.rerun()
         
         # Display upcoming deadlines
         st.subheader("Upcoming Deadlines")
@@ -150,21 +189,4 @@ def show_dashboard(db):
         else:
             st.info("No upcoming deadlines.")
     
-    # Display recommendations
-    st.subheader("Personalized Recommendations")
-    
-    # Get course recommendations for the user
-    recommended_courses = get_course_recommendations(db, user_id)
-    
-    if recommended_courses:
-        course_cols = st.columns(min(3, len(recommended_courses)))
-        for i, (col, course) in enumerate(zip(course_cols, recommended_courses[:3])):
-            with col:
-                st.markdown(f"**{course['title']}**")
-                st.write(course["description"][:150] + "..." if len(course["description"]) > 150 else course["description"])
-                st.caption(f"Category: {course['category']} | Difficulty: {course['difficulty'].capitalize()}")
-                
-                if st.button("Enroll", key=f"enroll_rec_{i}"):
-                    st.toast(f"Enrolled in {course['title']}", icon="✅")
-    else:
-        st.info("Complete more courses to get personalized recommendations.")
+    # Already moved personalized recommendations to the Overview tab

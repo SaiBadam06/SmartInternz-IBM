@@ -100,12 +100,12 @@ def show_add_your_material(db, user_id):
         source_type = st.radio("Source Type", ["URL", "Text Note", "Upload Notes"])
         
         if source_type == "URL":
-            source = st.text_input("Course/Material URL", placeholder="https://...")
+            source = st.text_input("Course/Material URL", placeholder="https://...", key="material_source")
             content = ""
             uploaded_file = None
         elif source_type == "Text Note":
             source = ""
-            content = st.text_area("Material Content", height=200, placeholder="Enter your notes or material content here...")
+            content = st.text_area("Material Content", height=200, placeholder="Enter your notes or material content here...", key="material_content")
             uploaded_file = None
         else:  # Upload Notes
             source = ""
