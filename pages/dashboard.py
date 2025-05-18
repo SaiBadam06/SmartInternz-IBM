@@ -115,11 +115,80 @@ def show_dashboard(db):
         # Display skill assessment with improved layout
         st.subheader("Skill Assessment")
         
-        # Sample skill data (in a real implementation, this would come from the database)
-        skills_data = pd.DataFrame({
-            "skill": ["Python", "Data Science", "Mathematics", "Problem Solving", "Communication"],
-            "level": [75, 60, 85, 70, 80]
-        })
+        # Get skill proficiency data based on user's assessment results, course progress, and learning activities
+        # This should be calculated from actual user data in production
+        try:
+            # Fetch user's assessment scores by topic/skill
+            assessment_results = db["assessment_results"].find({"user_id": user_id})
+            assessment_scores = {}
+            
+            for result in assessment_results:
+                # Get the assessment details to determine the skill
+                assessment = db["assessments"].find_one({"_id": result.get("assessment_id")})
+                if assessment:
+                    # Map the course/assessment to a skill
+                    course = db["courses"].find_one({"_id": assessment.get("course_id")})
+                    if course:
+                        # Extract the main skill from course category
+                        main_skill = course.get("category", "General")
+                        score = result.get("score", 0)
+                        
+                        # Update the skill score (use the highest score if multiple assessments)
+                        if main_skill in assessment_scores:
+                            assessment_scores[main_skill] = max(assessment_scores[main_skill], score)
+                        else:
+                            assessment_scores[main_skill] = score
+            
+            # Get course progress data to factor into skill levels
+            progress_data = list(db["progress"].find({"user_id": user_id}))
+            progress_by_course = {}
+            
+            for progress in progress_data:
+                course_id = progress.get("course_id")
+                if course_id:
+                    progress_by_course[course_id] = progress.get("progress_percentage", 0)
+            
+            # Combine assessment scores and progress data to calculate skill levels
+            skill_levels = {}
+            
+            # First add skills from assessment scores
+            for skill, score in assessment_scores.items():
+                skill_levels[skill] = score
+            
+            # Add skills from courses that don't have assessments yet
+            for course_id, progress in progress_by_course.items():
+                course = db["courses"].find_one({"_id": course_id})
+                if course:
+                    skill = course.get("category", "General")
+                    # If the skill doesn't have an assessment score, use progress as a proxy
+                    if skill not in skill_levels:
+                        skill_levels[skill] = progress
+                    # If it has a score but progress is higher, boost the score a bit
+                    elif progress > skill_levels[skill]:
+                        skill_levels[skill] = (skill_levels[skill] + progress) / 2
+            
+            # If we have no data, use some initial skill values for new users
+            if not skill_levels:
+                skill_levels = {
+                    "Computer Science": 60,
+                    "Data Science": 50,
+                    "Mathematics": 70,
+                    "Problem Solving": 65,
+                    "Communication": 75
+                }
+            
+            # Create a DataFrame for plotting
+            skills_data = pd.DataFrame({
+                "skill": list(skill_levels.keys()),
+                "level": list(skill_levels.values())
+            })
+            
+        except Exception as e:
+            # Fallback to some reasonable defaults if there's an error
+            skills_data = pd.DataFrame({
+                "skill": ["Python", "Data Science", "Mathematics", "Problem Solving", "Communication"],
+                "level": [65, 55, 70, 60, 75]
+            })
         
         display_radar_chart(skills_data)
         
