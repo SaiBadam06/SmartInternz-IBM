@@ -3,6 +3,7 @@ import pandas as pd
 from database import save_user_assessment_result
 from ai_engine import evaluate_answer, generate_practice_questions
 from .utils import create_assessment_card
+from datetime import datetime
 
 def show_assessments(db, ai_models):
     """Display the assessments page"""
@@ -164,13 +165,13 @@ def show_practice_questions(db, ai_models, user_id):
                 # Option to save these questions
                 if st.button("Save to My Practice Questions"):
                     # Save the questions to the database
-                    practice_collection = db.get("practice_questions", db["practice_questions"])
+                    practice_collection = db["practice_questions"]
                     practice = {
                         "user_id": user_id,
                         "topic": topic,
                         "difficulty": difficulty,
                         "questions": questions,
-                        "created_at": st.session_state.get("now", None)
+                        "created_at": datetime.now()
                     }
                     practice_collection.insert_one(practice)
                     st.success("Practice questions saved to your collection!")
@@ -181,7 +182,7 @@ def show_practice_questions(db, ai_models, user_id):
     st.subheader("My Saved Practice Questions")
     
     # Query the database for saved practice questions
-    practice_collection = db.get("practice_questions", db["practice_questions"])
+    practice_collection = db["practice_questions"]
     saved_practice = list(practice_collection.find({"user_id": user_id}))
     
     if saved_practice:

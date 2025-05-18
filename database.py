@@ -17,7 +17,166 @@ def initialize_db():
         return client, db
     except Exception as e:
         st.error(f"Failed to connect to MongoDB: {e}")
-        return None, None
+        # For demo purposes, create a fallback database
+        try:
+            # Create a fallback in-memory data structure
+            st.warning("Using local memory storage for demo purposes")
+            return setup_fallback_db()
+        except Exception as e2:
+            st.error(f"Fallback database also failed: {e2}")
+            return None, None
+
+def setup_fallback_db():
+    """Setup a fallback database using a dictionary-based approach for demo purposes"""
+    from datetime import datetime
+    
+    # Create a simple class to mimic MongoDB collection behavior
+    class MockCollection:
+        def __init__(self, name, initial_data=None):
+            self.name = name
+            self.data = initial_data or []
+            self._id_counter = 1000  # Starting ID for new documents
+            
+        def find(self, query=None, *args, **kwargs):
+            if query is None:
+                query = {}
+            
+            # Simple implementation of find with basic filtering
+            results = []
+            for doc in self.data:
+                match = True
+                for k, v in query.items():
+                    if k == "$or":
+                        or_match = False
+                        for or_clause in v:
+                            or_clause_match = True
+                            for or_k, or_v in or_clause.items():
+                                if or_k in doc:
+                                    if isinstance(or_v, dict) and "$regex" in or_v:
+                                        # Very basic regex support
+                                        pattern = or_v["$regex"].lower()
+                                        if pattern not in str(doc[or_k]).lower():
+                                            or_clause_match = False
+                                    elif doc[or_k] != or_v:
+                                        or_clause_match = False
+                                else:
+                                    or_clause_match = False
+                            if or_clause_match:
+                                or_match = True
+                                break
+                        if not or_match:
+                            match = False
+                    elif k == "$nin" and k in doc:
+                        if doc[k] in v:
+                            match = False
+                    elif k in doc:
+                        if isinstance(v, dict):
+                            # Handle operators like $in, $nin
+                            for op, op_val in v.items():
+                                if op == "$in" and doc[k] not in op_val:
+                                    match = False
+                                elif op == "$nin" and doc[k] in op_val:
+                                    match = False
+                                # Add more operators as needed
+                        elif doc[k] != v:
+                            match = False
+                    else:
+                        match = False
+                
+                if match:
+                    results.append(doc.copy())
+            
+            # Simple sort implementation
+            if kwargs.get("sort"):
+                field, direction = kwargs["sort"]
+                reverse = direction < 0
+                results.sort(key=lambda x: x.get(field, 0), reverse=reverse)
+            
+            # Simple limit implementation
+            if kwargs.get("limit"):
+                results = results[:kwargs["limit"]]
+                
+            return results
+            
+        def find_one(self, query=None):
+            results = self.find(query)
+            return results[0] if results else None
+            
+        def insert_one(self, document):
+            if "_id" not in document:
+                document["_id"] = str(self._id_counter)
+                self._id_counter += 1
+            self.data.append(document)
+            return type('obj', (object,), {'inserted_id': document["_id"]})
+            
+        def insert_many(self, documents):
+            for doc in documents:
+                self.insert_one(doc)
+            return type('obj', (object,), {'inserted_ids': [d.get("_id") for d in documents]})
+            
+        def update_one(self, query, update, *args, **kwargs):
+            for i, doc in enumerate(self.data):
+                match = True
+                for k, v in query.items():
+                    if k in doc and doc[k] != v:
+                        match = False
+                    elif k not in doc:
+                        match = False
+                        
+                if match:
+                    for op, values in update.items():
+                        if op == "$set":
+                            for field, value in values.items():
+                                self.data[i][field] = value
+                        elif op == "$push":
+                            for field, value in values.items():
+                                if field not in self.data[i]:
+                                    self.data[i][field] = []
+                                self.data[i][field].append(value)
+                    break
+                    
+        def delete_one(self, query):
+            for i, doc in enumerate(self.data):
+                match = True
+                for k, v in query.items():
+                    if k in doc and doc[k] != v:
+                        match = False
+                    elif k not in doc:
+                        match = False
+                        
+                if match:
+                    del self.data[i]
+                    break
+    
+    # Create a simple class to mimic MongoDB database behavior
+    class MockDatabase:
+        def __init__(self):
+            self.collections = {}
+            
+        def __getitem__(self, name):
+            if name not in self.collections:
+                self.collections[name] = MockCollection(name)
+            return self.collections[name]
+            
+        def list_collection_names(self):
+            return list(self.collections.keys())
+    
+    # Create a mock client
+    class MockClient:
+        def __init__(self):
+            self.db = MockDatabase()
+            
+        def __getitem__(self, name):
+            return self.db
+    
+    # Create instances
+    client = MockClient()
+    db = client.db
+    
+    # Initialize the mock database with sample data
+    create_initial_data(db)
+    
+    return client, db
 
 def create_initial_data(db):
     """Create initial data in the database if collections are empty"""
