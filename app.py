@@ -147,4 +147,4 @@ elif selection == "Q&A":
 
 # Footer
 st.sidebar.divider()
-st.sidebar.caption("© 2025 EduTutor AI. Powered by IBM Granite LLM")
+st.sidebar.caption("© 2025 SmartLearn. Powered by IBM Granite LLM")
