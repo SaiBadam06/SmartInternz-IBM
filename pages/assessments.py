@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from database import save_user_assessment_result
 from ai_engine import evaluate_answer, generate_practice_questions
-from .utils import create_assessment_card
+from pages.utils import create_assessment_card
 from datetime import datetime
 
 def show_assessments(db, ai_models):

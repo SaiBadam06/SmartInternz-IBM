@@ -1,6 +1,6 @@
 import streamlit as st
 from database import add_community_post
-from .utils import create_community_post_card, format_timestamp
+from pages.utils import create_community_post_card, format_timestamp
 
 def show_community(db):
     """Display the community page"""

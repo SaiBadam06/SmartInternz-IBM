@@ -12,24 +12,27 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hide default pages from Streamlit menu
-# This prevents the "app", "dashboard", etc. from showing in the pages list
+# Hide Streamlit's native pages from the UI and rename to "SmartLearn"
 st.markdown("""
 <style>
-    [data-testid="stSidebarNav"]::before {
-        content: "EduTutor AI";
-        margin-left: 20px;
-        margin-top: 20px;
-        font-size: 18px;
-        font-weight: bold;
-        position: relative;
-        top: 100px;
+    /* Completely hide the page menu in sidebar */
+    header[data-testid="stHeader"] {
         display: none;
     }
     
-    /* Hide the page list in sidebar */
-    [data-testid="stSidebar"] section:has([data-testid="stSidebarNav"]) {
+    /* Hide the page navigation in sidebar */
+    [data-testid="stSidebarNav"] {
         display: none;
+    }
+    
+    /* Make sure no default navigation is shown */
+    .stApp > header {
+        display: none;
+    }
+    
+    /* Custom styling for the app */
+    .main .block-container {
+        padding-top: 1rem;
     }
 </style>
 """, unsafe_allow_html=True)

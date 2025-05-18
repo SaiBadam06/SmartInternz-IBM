@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from .utils import display_progress_chart, display_score_chart, display_summary_metrics, display_radar_chart
+from pages.utils import display_progress_chart, display_score_chart, display_summary_metrics, display_radar_chart
 from database import get_learning_stats, get_course_recommendations
 
 def show_dashboard(db):

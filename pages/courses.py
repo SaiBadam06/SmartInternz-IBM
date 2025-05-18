@@ -1,6 +1,6 @@
 import streamlit as st
 from database import get_user_courses
-from .utils import create_course_card
+from pages.utils import create_course_card
 from ai_engine import generate_content, summarize_learning_material
 from datetime import datetime
 
@@ -94,17 +94,24 @@ def show_add_your_material(db, user_id):
     # Material form
     with st.form("add_material_form"):
         # Title input
-        title = st.text_input("Title", placeholder="Enter the title of your material or course")
+        title = st.text_input("Title", placeholder="Enter the title of your material or course", key="material_title")
         
-        # Source input (URL or file)
-        source_type = st.radio("Source Type", ["URL", "Text Note"])
+        # Source input options
+        source_type = st.radio("Source Type", ["URL", "Text Note", "Upload Notes"])
         
         if source_type == "URL":
             source = st.text_input("Course/Material URL", placeholder="https://...")
             content = ""
-        else:
+            uploaded_file = None
+        elif source_type == "Text Note":
             source = ""
             content = st.text_area("Material Content", height=200, placeholder="Enter your notes or material content here...")
+            uploaded_file = None
+        else:  # Upload Notes
+            source = ""
+            content = ""
+            st.markdown("#### Upload your notes file (PDF, DOCX, TXT)")
+            uploaded_file = st.file_uploader("Choose a file", type=["pdf", "docx", "txt"], label_visibility="collapsed")
         
         # Category selection
         categories = ["Computer Science", "Data Science", "Mathematics", "Language Learning", "Science", "Other"]
@@ -118,7 +125,32 @@ def show_add_your_material(db, user_id):
         submitted = st.form_submit_button("Add Material")
         
     if submitted:
-        if title and (source or content):
+        valid_submission = False
+        file_content = None
+        file_name = None
+        
+        if source_type == "URL" and title and source:
+            valid_submission = True
+        elif source_type == "Text Note" and title and content:
+            valid_submission = True
+        elif source_type == "Upload Notes" and title and uploaded_file is not None:
+            # Process the uploaded file
+            try:
+                file_bytes = uploaded_file.read()
+                file_name = uploaded_file.name
+                
+                # For text files, we can read the content
+                if file_name.endswith('.txt'):
+                    file_content = file_bytes.decode('utf-8')
+                else:
+                    # For binary files like PDF/DOCX, we just note the file name
+                    file_content = f"Uploaded file: {file_name}"
+                    
+                valid_submission = True
+            except Exception as e:
+                st.toast(f"Error processing file: {str(e)}", icon="⚠️")
+        
+        if valid_submission:
             # Save the material to the database
             materials_collection = db["user_materials"]
             
@@ -127,7 +159,8 @@ def show_add_your_material(db, user_id):
                 "title": title,
                 "source_type": source_type,
                 "source": source,
-                "content": content,
+                "content": content if source_type != "Upload Notes" else file_content,
+                "file_name": file_name if source_type == "Upload Notes" else None,
                 "category": category,
                 "difficulty": difficulty,
                 "created_at": datetime.now()
@@ -135,6 +168,12 @@ def show_add_your_material(db, user_id):
             
             materials_collection.insert_one(material)
             st.toast("Material added successfully!", icon="✅")
+            
+            # Reset the form
+            st.session_state["material_title"] = ""
+            st.session_state["material_source"] = ""
+            st.session_state["material_content"] = ""
+            st.rerun()
         else:
             st.toast("Please fill in all required fields", icon="⚠️")
     

@@ -1,7 +1,7 @@
 import streamlit as st
 from database import add_qa_question, update_qa_answer
 from ai_engine import answer_question
-from .utils import create_qa_card
+from pages.utils import create_qa_card
 
 def show_qa(db, ai_models):
     """Display the Q&A page"""
