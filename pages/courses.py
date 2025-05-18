@@ -91,91 +91,156 @@ def show_add_your_material(db, user_id):
     Add your own learning materials or course links to keep track of your resources in one place.
     """)
     
-    # Material form
-    with st.form("add_material_form"):
-        # Title input
-        title = st.text_input("Title", placeholder="Enter the title of your material or course", key="material_title")
+    # Initialize form state if not present
+    if "material_form_state" not in st.session_state:
+        st.session_state.material_form_state = {
+            "title": "",
+            "source_type": "URL",
+            "url": "",
+            "text_content": "",
+            "category": "Computer Science",
+            "difficulty": "intermediate"
+        }
+    
+    # Create a container for the dynamic form
+    form_container = st.container()
+    
+    with form_container:
+        # Title input (outside the dynamic part)
+        title = st.text_input(
+            "Title", 
+            value=st.session_state.material_form_state["title"],
+            placeholder="Enter the title of your material or course"
+        )
         
-        # Source input options
-        source_type = st.radio("Source Type", ["URL", "Text Note", "Upload Notes"])
+        # Source type selection
+        source_type = st.radio(
+            "Source Type", 
+            ["URL", "Text Note", "Upload Notes"],
+            index=["URL", "Text Note", "Upload Notes"].index(st.session_state.material_form_state["source_type"])
+        )
         
-        if source_type == "URL":
-            source = st.text_input("Course/Material URL", placeholder="https://...", key="material_source")
-            content = ""
-            uploaded_file = None
-        elif source_type == "Text Note":
-            source = ""
-            content = st.text_area("Material Content", height=200, placeholder="Enter your notes or material content here...", key="material_content")
-            uploaded_file = None
-        else:  # Upload Notes
-            source = ""
-            content = ""
-            st.markdown("#### Upload your notes file (PDF, DOCX, TXT)")
-            uploaded_file = st.file_uploader("Choose a file", type=["pdf", "docx", "txt"], label_visibility="collapsed")
+        # Update the source type in session state
+        st.session_state.material_form_state["source_type"] = source_type
         
-        # Category selection
-        categories = ["Computer Science", "Data Science", "Mathematics", "Language Learning", "Science", "Other"]
-        category = st.selectbox("Category", categories)
-        
-        # Difficulty selection
-        difficulty_options = ["beginner", "intermediate", "advanced"]
-        difficulty = st.select_slider("Difficulty", options=difficulty_options, value="intermediate")
-        
-        # Submit button
-        submitted = st.form_submit_button("Add Material")
-        
-    if submitted:
-        valid_submission = False
+        # Dynamic form fields based on source type
+        source = ""
+        content = ""
+        uploaded_file = None
         file_content = None
         file_name = None
         
-        if source_type == "URL" and title and source:
-            valid_submission = True
-        elif source_type == "Text Note" and title and content:
-            valid_submission = True
-        elif source_type == "Upload Notes" and title and uploaded_file is not None:
-            # Process the uploaded file
-            try:
-                file_bytes = uploaded_file.read()
-                file_name = uploaded_file.name
+        if source_type == "URL":
+            source = st.text_input(
+                "Course/Material URL", 
+                value=st.session_state.material_form_state["url"],
+                placeholder="https://..."
+            )
+            st.session_state.material_form_state["url"] = source
+            
+        elif source_type == "Text Note":
+            content = st.text_area(
+                "Material Content", 
+                value=st.session_state.material_form_state["text_content"],
+                height=200, 
+                placeholder="Enter your notes or material content here..."
+            )
+            st.session_state.material_form_state["text_content"] = content
+            
+        else:  # Upload Notes
+            st.markdown("#### Upload your notes file (PDF, DOCX, TXT)")
+            uploaded_file = st.file_uploader(
+                "Choose a file", 
+                type=["pdf", "docx", "txt"], 
+                label_visibility="collapsed"
+            )
+            
+            if uploaded_file is not None:
+                st.success(f"File selected: {uploaded_file.name}")
                 
-                # For text files, we can read the content
-                if file_name.endswith('.txt'):
-                    file_content = file_bytes.decode('utf-8')
-                else:
-                    # For binary files like PDF/DOCX, we just note the file name
-                    file_content = f"Uploaded file: {file_name}"
-                    
-                valid_submission = True
-            except Exception as e:
-                st.toast(f"Error processing file: {str(e)}", icon="⚠️")
+                # Preview button for text files
+                if uploaded_file.name.endswith('.txt'):
+                    if st.button("Preview Text Content"):
+                        file_bytes = uploaded_file.read()
+                        preview_content = file_bytes.decode('utf-8')
+                        st.text_area("File Preview", preview_content[:1000] + ("..." if len(preview_content) > 1000 else ""), height=200)
+                        # Reset file position
+                        uploaded_file.seek(0)
         
-        if valid_submission:
-            # Save the material to the database
-            materials_collection = db["user_materials"]
+        # Category selection
+        categories = ["Computer Science", "Data Science", "Mathematics", "Language Learning", "Science", "Other"]
+        category = st.selectbox(
+            "Category", 
+            categories,
+            index=categories.index(st.session_state.material_form_state["category"]) if st.session_state.material_form_state["category"] in categories else 0
+        )
+        st.session_state.material_form_state["category"] = category
+        
+        # Difficulty selection
+        difficulty_options = ["beginner", "intermediate", "advanced"]
+        difficulty = st.select_slider(
+            "Difficulty", 
+            options=difficulty_options, 
+            value=st.session_state.material_form_state["difficulty"]
+        )
+        st.session_state.material_form_state["difficulty"] = difficulty
+        
+        # Submit button
+        if st.button("Add Material"):
+            valid_submission = False
             
-            material = {
-                "user_id": user_id,
-                "title": title,
-                "source_type": source_type,
-                "source": source,
-                "content": content if source_type != "Upload Notes" else file_content,
-                "file_name": file_name if source_type == "Upload Notes" else None,
-                "category": category,
-                "difficulty": difficulty,
-                "created_at": datetime.now()
-            }
+            if source_type == "URL" and title and source:
+                valid_submission = True
+            elif source_type == "Text Note" and title and content:
+                valid_submission = True
+            elif source_type == "Upload Notes" and title and uploaded_file is not None:
+                # Process the uploaded file
+                try:
+                    file_bytes = uploaded_file.read()
+                    file_name = uploaded_file.name
+                    
+                    # For text files, we can read the content
+                    if file_name.endswith('.txt'):
+                        file_content = file_bytes.decode('utf-8')
+                    else:
+                        # For binary files like PDF/DOCX, we just note the file name
+                        file_content = f"Uploaded file: {file_name}"
+                        
+                    valid_submission = True
+                except Exception as e:
+                    st.toast(f"Error processing file: {str(e)}", icon="⚠️")
             
-            materials_collection.insert_one(material)
-            st.toast("Material added successfully!", icon="✅")
-            
-            # Reset the form
-            st.session_state["material_title"] = ""
-            st.session_state["material_source"] = ""
-            st.session_state["material_content"] = ""
-            st.rerun()
-        else:
-            st.toast("Please fill in all required fields", icon="⚠️")
+            if valid_submission:
+                # Save the material to the database
+                materials_collection = db["user_materials"]
+                
+                material = {
+                    "user_id": user_id,
+                    "title": title,
+                    "source_type": source_type,
+                    "source": source,
+                    "content": content if source_type != "Upload Notes" else file_content,
+                    "file_name": file_name if source_type == "Upload Notes" else None,
+                    "category": category,
+                    "difficulty": difficulty,
+                    "created_at": datetime.now()
+                }
+                
+                materials_collection.insert_one(material)
+                st.toast("Material added successfully!", icon="✅")
+                
+                # Reset the form
+                st.session_state.material_form_state = {
+                    "title": "",
+                    "source_type": "URL",
+                    "url": "",
+                    "text_content": "",
+                    "category": "Computer Science",
+                    "difficulty": "intermediate"
+                }
+                st.rerun()
+            else:
+                st.toast("Please fill in all required fields", icon="⚠️")
     
     # Display saved materials
     st.subheader("My Saved Materials")

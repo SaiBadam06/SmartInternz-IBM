@@ -2,22 +2,27 @@ import os
 import streamlit as st
 import pandas as pd
 import numpy as np
+from granite_model import initialize_granite_model, generate_granite_response
 
 def load_ai_models():
     """Load AI models for use in the application"""
     try:
-        # For demo purposes, we'll create a simple AI simulator
-        # In a production environment, this would connect to real AI models
+        # Setup IBM Granite model
+        granite_model = initialize_granite_model()
         
-        st.sidebar.info("⚠️ Using simulated AI responses for demo purposes")
+        if granite_model and "model_name" in granite_model:
+            st.sidebar.info(f"🤖 Using {granite_model['model_name']}")
+        else:
+            st.sidebar.info("⚠️ Using simulated AI responses for demo purposes")
         
-        # Return a dictionary with methods that simulate AI responses
+        # Return a dictionary with AI model data
         return {
             "content_generation": True,
             "assessment_feedback": True,
             "qa_answer": True,
             "course_recommendation": True,
-            "simulator": True
+            "simulator": True,
+            "granite_model": granite_model
         }
     except Exception as e:
         st.error(f"Failed to load AI models: {e}")
@@ -168,51 +173,194 @@ def generate_practice_questions(ai_models, topic, difficulty="intermediate", num
     """Generate practice questions on a specific topic"""
     try:
         if ai_models:
-            # Simulated practice questions for demo purposes
-            questions = f"""
-            # Practice Questions on {topic} ({difficulty} level)
-
-            ## Question 1
-            What is the primary purpose of {topic}?
+            # Create structured practice questions based on the topic
+            questions = []
             
-            **Options:**
-            A) First possible answer
-            B) Second possible answer
-            C) Third possible answer
-            D) Fourth possible answer
+            # Define difficulty adjustments
+            complexity = {
+                "beginner": "basic, fundamental concepts with straightforward answers",
+                "intermediate": "moderately complex concepts that require some analysis",
+                "advanced": "complex, in-depth concepts that require critical thinking"
+            }
             
-            **Correct Answer:** B
+            # Generate different question types based on topic
+            if topic.lower() in ["python", "programming", "coding"]:
+                questions = [
+                    {
+                        "question": "What is the output of the following Python code?\n\nx = [1, 2, 3]\ny = x\ny.append(4)\nprint(x)",
+                        "options": [
+                            "A) [1, 2, 3]",
+                            "B) [1, 2, 3, 4]",
+                            "C) [4, 1, 2, 3]",
+                            "D) Error"
+                        ],
+                        "correct_answer": 1,  # B is correct (index 1)
+                        "explanation": "In Python, assignment operations create references to the same object, not copies. When we modify y by appending 4, we're also modifying x since they reference the same list object."
+                    },
+                    {
+                        "question": "Which of the following is NOT a valid way to create a dictionary in Python?",
+                        "options": [
+                            "A) dict(a=1, b=2)",
+                            "B) {'a': 1, 'b': 2}",
+                            "C) dict([('a', 1), ('b', 2)])",
+                            "D) {a=1, b=2}"
+                        ],
+                        "correct_answer": 3,  # D is correct (index 3)
+                        "explanation": "Option D is invalid syntax for dictionary creation in Python. The correct syntax would be {'a': 1, 'b': 2} or dict(a=1, b=2) or dict([('a', 1), ('b', 2)])."
+                    },
+                    {
+                        "question": "What is the primary purpose of the __init__ method in Python classes?",
+                        "options": [
+                            "A) To initialize class variables",
+                            "B) To initialize instance variables when an object is created",
+                            "C) To define class methods",
+                            "D) To end the execution of a program"
+                        ],
+                        "correct_answer": 1,  # B is correct (index 1)
+                        "explanation": "The __init__ method in Python is used to initialize instance variables when an object is created. It's called automatically when you create a new instance of a class."
+                    }
+                ]
+            elif topic.lower() in ["data science", "machine learning", "ai"]:
+                questions = [
+                    {
+                        "question": "Which of the following is NOT a supervised learning algorithm?",
+                        "options": [
+                            "A) Linear Regression",
+                            "B) K-means Clustering",
+                            "C) Support Vector Machines",
+                            "D) Logistic Regression"
+                        ],
+                        "correct_answer": 1,  # B is correct (index 1)
+                        "explanation": "K-means Clustering is an unsupervised learning algorithm used for finding clusters in data. Linear Regression, Support Vector Machines, and Logistic Regression are all supervised learning algorithms."
+                    },
+                    {
+                        "question": "What is the purpose of regularization in machine learning?",
+                        "options": [
+                            "A) To increase model complexity",
+                            "B) To decrease training time",
+                            "C) To prevent overfitting",
+                            "D) To improve model interpretability"
+                        ],
+                        "correct_answer": 2,  # C is correct (index 2)
+                        "explanation": "Regularization is used to prevent overfitting by adding a penalty term to the loss function, which discourages the model from learning overly complex patterns that may not generalize well to new data."
+                    },
+                    {
+                        "question": "Which of the following metrics is most appropriate for evaluating a classification model on an imbalanced dataset?",
+                        "options": [
+                            "A) Accuracy",
+                            "B) F1 Score",
+                            "C) Mean Squared Error",
+                            "D) R-squared"
+                        ],
+                        "correct_answer": 1,  # B is correct (index 1)
+                        "explanation": "The F1 Score is a good metric for imbalanced datasets as it combines precision and recall. Accuracy can be misleading on imbalanced datasets, while MSE and R-squared are typically used for regression problems."
+                    }
+                ]
+            elif topic.lower() in ["mathematics", "math", "algebra", "calculus"]:
+                questions = [
+                    {
+                        "question": "What is the derivative of f(x) = x³ + 2x² - 5x + 3?",
+                        "options": [
+                            "A) 3x² + 4x - 5",
+                            "B) 3x² + 4x + 5",
+                            "C) x² + 4x - 5",
+                            "D) 3x² - 4x - 5"
+                        ],
+                        "correct_answer": 0,  # A is correct (index 0)
+                        "explanation": "The derivative of x³ is 3x², the derivative of 2x² is 4x, the derivative of -5x is -5, and the derivative of the constant 3 is 0. Adding these together gives 3x² + 4x - 5."
+                    },
+                    {
+                        "question": "Solve the equation: 2x² - 5x - 3 = 0",
+                        "options": [
+                            "A) x = 3 or x = -0.5",
+                            "B) x = 3 or x = 0.5",
+                            "C) x = -3 or x = 0.5",
+                            "D) x = -3 or x = -0.5"
+                        ],
+                        "correct_answer": 0,  # A is correct (index 0)
+                        "explanation": "Using the quadratic formula x = (-b ± √(b²-4ac))/(2a) with a=2, b=-5, c=-3, we get x = (5 ± √(25+24))/4 = (5 ± √49)/4 = (5 ± 7)/4, which gives x = 3 or x = -0.5."
+                    },
+                    {
+                        "question": "What is the value of ∫(2x + 3) dx?",
+                        "options": [
+                            "A) x² + 3x",
+                            "B) x² + 3x + C",
+                            "C) 2x + 3 + C",
+                            "D) 2(x² + 3x)"
+                        ],
+                        "correct_answer": 1,  # B is correct (index 1)
+                        "explanation": "The integral of 2x is x², the integral of 3 is 3x, and we need to add a constant of integration C. So ∫(2x + 3) dx = x² + 3x + C."
+                    }
+                ]
+            else:
+                # Generic questions for other topics
+                questions = [
+                    {
+                        "question": f"What is a key principle of {topic}?",
+                        "options": [
+                            f"A) {topic} is primarily focused on theoretical concepts without practical applications",
+                            f"B) {topic} integrates multiple disciplines to solve complex problems",
+                            f"C) {topic} was developed primarily in the 21st century",
+                            f"D) {topic} is mainly used in academic research but rarely in industry"
+                        ],
+                        "correct_answer": 1,  # B is correct (index 1)
+                        "explanation": f"{topic} is known for its interdisciplinary approach, integrating knowledge from various fields to address complex problems effectively."
+                    },
+                    {
+                        "question": f"Which statement best describes the relationship between {topic} and critical thinking?",
+                        "options": [
+                            f"A) {topic} replaces the need for critical thinking with algorithmic procedures",
+                            f"B) {topic} and critical thinking are unrelated disciplines",
+                            f"C) {topic} enhances critical thinking by providing analytical frameworks",
+                            f"D) Critical thinking is only relevant to theoretical aspects of {topic}"
+                        ],
+                        "correct_answer": 2,  # C is correct (index 2)
+                        "explanation": f"{topic} provides structured frameworks that enhance critical thinking by encouraging systematic analysis, evaluation of evidence, and logical reasoning."
+                    },
+                    {
+                        "question": f"Which of the following best represents an application of {topic}?",
+                        "options": [
+                            f"A) Developing theoretical models without practical implementation",
+                            f"B) Applying established principles to solve novel problems",
+                            f"C) Memorizing facts and procedures",
+                            f"D) Working exclusively with qualitative data"
+                        ],
+                        "correct_answer": 1,  # B is correct (index 1)
+                        "explanation": f"A key application of {topic} involves applying established principles and methodologies to address new and emerging problems, demonstrating its practical value."
+                    }
+                ]
             
-            **Explanation:** The second answer is correct because it accurately describes the fundamental principle of {topic}, which is essential for understanding its applications.
-
-            ## Question 2
-            How would you apply {topic} in a real-world scenario?
+            # Adjust number of questions if needed
+            if len(questions) > num_questions:
+                questions = questions[:num_questions]
+            elif len(questions) < num_questions:
+                # Add generic questions if we need more
+                for i in range(len(questions), num_questions):
+                    questions.append({
+                        "question": f"Question {i+1}: According to modern research, what is a significant factor in understanding {topic}?",
+                        "options": [
+                            f"A) Historical development is irrelevant to understanding {topic}",
+                            f"B) Comprehensive knowledge of {topic} requires understanding its foundational principles",
+                            f"C) {topic} is best learned through memorization alone",
+                            f"D) {topic} concepts are unchanging and not subject to revision"
+                        ],
+                        "correct_answer": 1,  # B is correct (index 1)
+                        "explanation": f"Understanding the foundational principles of {topic} is essential for developing comprehensive knowledge, as these principles provide the framework for all advanced concepts."
+                    })
+                    
+            # Format the questions for display
+            formatted_questions = f"# Practice Questions on {topic} ({difficulty} level)\n\n"
             
-            **Options:**
-            A) First application example
-            B) Second application example
-            C) Third application example
-            D) Fourth application example
-            
-            **Correct Answer:** A
-            
-            **Explanation:** The first application example demonstrates the most effective use of {topic} principles in practical situations.
-
-            ## Question 3
-            What is a common misconception about {topic}?
-            
-            **Options:**
-            A) First misconception
-            B) Second misconception
-            C) Third misconception
-            D) Fourth misconception
-            
-            **Correct Answer:** C
-            
-            **Explanation:** Many people incorrectly believe the third option, but research has shown this to be a misconception that can hinder proper understanding of {topic}.
-            """
-            
-            return questions
+            for i, q in enumerate(questions):
+                formatted_questions += f"## Question {i+1}\n"
+                formatted_questions += f"{q['question']}\n\n"
+                formatted_questions += "**Options:**\n"
+                for option in q['options']:
+                    formatted_questions += f"{option}\n"
+                formatted_questions += f"\n**Correct Answer:** {q['options'][q['correct_answer']][0]}\n\n"
+                formatted_questions += f"**Explanation:** {q['explanation']}\n\n"
+                
+            return formatted_questions
         else:
             return "AI model not available. Please try again later."
     except Exception as e:
