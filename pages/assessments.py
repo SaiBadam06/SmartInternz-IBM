@@ -143,7 +143,7 @@ def show_practice_questions(db, ai_models, user_id):
     """)
     
     # Topic input
-    topic = st.text_input("Topic", "")
+    topic = st.text_input("Topic", placeholder="e.g., Python, Data Science, Mathematics")
     
     # Difficulty selection
     difficulty_options = ["beginner", "intermediate", "advanced"]
@@ -156,14 +156,21 @@ def show_practice_questions(db, ai_models, user_id):
     if st.button("Generate Practice Questions"):
         if topic:
             with st.spinner("Generating practice questions..."):
+                # Use the IBM Granite model if available
+                if "granite_model" in ai_models and ai_models["granite_model"]:
+                    st.info("Using advanced AI model to generate high-quality questions")
+                
                 questions = generate_practice_questions(ai_models, topic, difficulty, num_questions)
                 
                 # Display the generated questions
                 st.subheader(f"Practice Questions: {topic}")
-                st.write(questions)
+                st.markdown(questions)
+                
+                # Create a container for the save button
+                save_container = st.container()
                 
                 # Option to save these questions
-                if st.button("Save to My Practice Questions"):
+                if save_container.button("Save to My Practice Questions"):
                     # Save the questions to the database
                     practice_collection = db["practice_questions"]
                     practice = {
@@ -175,6 +182,7 @@ def show_practice_questions(db, ai_models, user_id):
                     }
                     practice_collection.insert_one(practice)
                     st.success("Practice questions saved to your collection!")
+                    # We don't need a rerun here since we're not clearing form fields
         else:
             st.warning("Please enter a topic.")
     
