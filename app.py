@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import importlib.util
 from database import initialize_db
 from ai_engine import load_ai_models
 
@@ -10,6 +11,28 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Hide default pages from Streamlit menu
+# This prevents the "app", "dashboard", etc. from showing in the pages list
+st.markdown("""
+<style>
+    [data-testid="stSidebarNav"]::before {
+        content: "EduTutor AI";
+        margin-left: 20px;
+        margin-top: 20px;
+        font-size: 18px;
+        font-weight: bold;
+        position: relative;
+        top: 100px;
+        display: none;
+    }
+    
+    /* Hide the page list in sidebar */
+    [data-testid="stSidebar"] section:has([data-testid="stSidebarNav"]) {
+        display: none;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Initialize database connection
 db_client, db = initialize_db()
@@ -27,6 +50,16 @@ if 'username' not in st.session_state:
     
 if 'current_course' not in st.session_state:
     st.session_state['current_course'] = None
+
+# Import page modules dynamically to avoid displaying in UI
+pages = {}
+for module_name in ["dashboard", "courses", "assessments", "community", "qa", "todo"]:
+    module_path = f"pages/{module_name}.py"
+    spec = importlib.util.spec_from_file_location(f"pages.{module_name}", module_path)
+    if spec and spec.loader:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        pages[module_name] = module
 
 # Sidebar navigation
 st.sidebar.title("EduTutor AI")
@@ -47,42 +80,65 @@ st.sidebar.markdown("""
 st.sidebar.markdown(f"Welcome, **{st.session_state.username}**!")
 st.sidebar.divider()
 
+# Display current learning material if set
+if "current_material" in st.session_state and st.session_state["current_material"]:
+    material = st.session_state["current_material"]
+    st.sidebar.markdown("""
+    <div style="background-color:#f0f2f6; padding:10px; border-radius:5px; margin-bottom:10px;">
+        <h4 style="margin:0 0 5px 0;">Currently Learning</h4>
+        <p style="font-weight:bold; margin:0 0 5px 0;">📚 {}</p>
+        <p style="font-size:0.8em; margin:0;">{}</p>
+    </div>
+    """.format(
+        material.get("title", "Unknown"),
+        material.get("category", "")
+    ), unsafe_allow_html=True)
+    
+    if st.sidebar.button("Clear Current Material"):
+        st.session_state.pop("current_material", None)
+        st.rerun()
+
+st.sidebar.divider()
+
 # Main navigation
 nav_options = {
     "Dashboard": "📊",
     "Courses & Materials": "📚",
     "Assessments": "📝",
+    "Task Planner": "📋",
     "Community": "👥",
     "Q&A": "❓"
 }
 
-selection = st.sidebar.radio(
-    "Navigation",
-    list(nav_options.keys()),
-    format_func=lambda x: f"{nav_options[x]} {x}"
-)
+# Check if navigation selection was set programmatically
+if "nav_selection" in st.session_state:
+    selection = st.session_state.pop("nav_selection")
+else:
+    selection = st.sidebar.radio(
+        "Navigation",
+        list(nav_options.keys()),
+        format_func=lambda x: f"{nav_options[x]} {x}"
+    )
 
-# Links to different sections
+# Display the selected page
 if selection == "Dashboard":
-    from pages.dashboard import show_dashboard
-    show_dashboard(db)
+    pages["dashboard"].show_dashboard(db)
     
 elif selection == "Courses & Materials":
-    from pages.courses import show_courses
-    show_courses(db, ai_models)
+    pages["courses"].show_courses(db, ai_models)
     
 elif selection == "Assessments":
-    from pages.assessments import show_assessments
-    show_assessments(db, ai_models)
+    pages["assessments"].show_assessments(db, ai_models)
+    
+elif selection == "Task Planner":
+    pages["todo"].show_todo(db)
     
 elif selection == "Community":
-    from pages.community import show_community
-    show_community(db)
+    pages["community"].show_community(db)
     
 elif selection == "Q&A":
-    from pages.qa import show_qa
-    show_qa(db, ai_models)
+    pages["qa"].show_qa(db, ai_models)
 
 # Footer
 st.sidebar.divider()
-st.sidebar.caption("© 2023 EduTutor AI. Powered by IBM Granite LLM")
+st.sidebar.caption("© 2025 EduTutor AI. Powered by IBM Granite LLM")
