@@ -65,9 +65,9 @@ def show_questions(db):
     questions = list(qa_collection.find(query).sort("created_at", -1))
     
     if questions:
-        # Display questions
-        for question in questions:
-            create_qa_card(question)
+        # Display questions with unique indices
+        for i, question in enumerate(questions):
+            create_qa_card(question, index=f"browse_{i}")
     else:
         st.info("No questions found matching your criteria.")
 
@@ -80,23 +80,42 @@ def ask_question(db, ai_models, user_id, username):
     Your question will also be visible to the community, where others can learn from it.
     """)
     
+    # Topic selection
+    topics = ["Python", "Data Science", "Mathematics", "Statistics", "Machine Learning", "Computer Science", "Other"]
+    topic_selection = st.selectbox("Topic", topics)
+    
+    # If 'Other' is selected, allow custom topic input
+    if topic_selection == "Other":
+        custom_topic = st.text_input("Please specify the topic:")
+        topic = custom_topic if custom_topic else "Other"
+    else:
+        topic = topic_selection
+    
     # Question form
     title = st.text_input("Question Title")
     content = st.text_area("Question Details", height=150)
     
-    # Topic selection
-    topics = ["Python", "Data Science", "Mathematics", "Statistics", "Machine Learning", "Computer Science", "Other"]
-    topic = st.selectbox("Topic", topics)
-    
     # Submit button
     if st.button("Submit Question"):
-        if title and content:
+        if title and content and topic:
             with st.spinner("Processing your question..."):
                 # Add the question to the database
                 question_id = add_qa_question(db, user_id, username, title, content, topic)
                 
-                # Generate AI answer
-                ai_answer = answer_question(ai_models, title, content, topic)
+                # Generate AI answer using IBM Granite model if available
+                if "granite_model" in ai_models and ai_models["granite_model"]:
+                    from granite_model import generate_granite_response
+                    try:
+                        prompt = f"Question: {title}\n\nDetails: {content}\n\nTopic: {topic}\n\nPlease provide a detailed, accurate, and educational answer to this question."
+                        answer_content = generate_granite_response(ai_models["granite_model"], prompt, max_tokens=1000)
+                        ai_answer = f"## Answer to: {title}\n\n{answer_content}"
+                    except Exception as e:
+                        # Fall back to standard answer_question if there's an error
+                        st.error(f"Error with advanced AI model: {str(e)}")
+                        ai_answer = answer_question(ai_models, title, content, topic)
+                else:
+                    # Standard answer generation
+                    ai_answer = answer_question(ai_models, title, content, topic)
                 
                 # Update the question with the AI answer
                 update_qa_answer(db, question_id, ai_answer)
@@ -111,7 +130,12 @@ def ask_question(db, ai_models, user_id, username):
                 if st.button("View All Questions"):
                     st.rerun()
         else:
-            st.warning("Please fill in both title and question details fields.")
+            if not title:
+                st.warning("Please enter a question title.")
+            if not content:
+                st.warning("Please provide question details.")
+            if topic_selection == "Other" and not topic:
+                st.warning("Please specify a topic.")
     
     # Display tips for asking good questions
     with st.expander("Tips for Asking Good Questions"):
@@ -144,8 +168,8 @@ def show_my_questions(db, user_id):
     user_questions = list(qa_collection.find({"user_id": user_id}).sort("created_at", -1))
     
     if user_questions:
-        # Display user's questions
-        for question in user_questions:
-            create_qa_card(question)
+        # Display user's questions with unique indices
+        for i, question in enumerate(user_questions):
+            create_qa_card(question, index=f"my_{i}")
     else:
         st.info("You haven't asked any questions yet.")

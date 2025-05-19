@@ -165,7 +165,7 @@ def create_community_post_card(post):
         
         st.markdown("---")
 
-def create_qa_card(question):
+def create_qa_card(question, index="0"):
     """Create a styled card for a Q&A question"""
     with st.container():
         st.subheader(question["title"])
@@ -180,6 +180,7 @@ def create_qa_card(question):
         
         col1, col2 = st.columns([1, 10])
         with col1:
-            st.button(f"👍 {question['likes']}", key=f"like_q_{question.get('_id', 'unknown')}")
+            # Add unique index to prevent duplicate keys
+            st.button(f"👍 {question['likes']}", key=f"like_q_{question.get('_id', 'unknown')}_{index}")
         
         st.markdown("---")
