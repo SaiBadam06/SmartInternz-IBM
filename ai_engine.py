@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 from granite_model import initialize_granite_model, generate_granite_response
 
+HF_TOKEN = os.getenv("HF_TOKEN")
+
 def load_ai_models():
     """Load AI models for use in the application"""
     try:

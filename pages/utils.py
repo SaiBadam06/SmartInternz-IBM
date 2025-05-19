@@ -145,16 +145,50 @@ def create_assessment_card(assessment, take_assessment_callback=None):
         
         st.markdown("---")
 
-def create_community_post_card(post):
-    """Create a styled card for a community post"""
+def create_community_post_card(post, user_id="demo_student_id", posts_collection=None, index=0):
+    """Create a styled card for a community post with toggleable reactions"""
     with st.container():
         st.subheader(post["title"])
         st.caption(f"Posted by {post['username']} on {format_timestamp(post['created_at'])} | Topic: {post['topic']}")
         st.write(post["content"])
         
+        # Track user reactions in session state if not already present
+        if "user_reactions" not in st.session_state:
+            st.session_state.user_reactions = {}
+        
+        # Generate a unique key for this post
+        reaction_key = f"reaction_{post.get('_id', 'unknown')}"
+        
+        # Check if user has already reacted to this post
+        has_reacted = st.session_state.user_reactions.get(reaction_key, False)
+        
         col1, col2 = st.columns([1, 10])
         with col1:
-            st.button(f"❤️ {post['likes']}", key=f"like_{post.get('_id', 'unknown')}")
+            # Display different button based on reaction status
+            if has_reacted:
+                # User already liked, clicking will remove the like
+                if st.button(f"❤️ {post['likes']} (Liked)", key=f"like_{post.get('_id', 'unknown')}_{index}"):
+                    if posts_collection:
+                        # Decrement like count
+                        posts_collection.update_one(
+                            {"_id": post["_id"]},
+                            {"$inc": {"likes": -1}}
+                        )
+                        # Update user reaction status
+                        st.session_state.user_reactions[reaction_key] = False
+                        st.rerun()
+            else:
+                # User hasn't liked yet, clicking will add a like
+                if st.button(f"🤍 {post['likes']}", key=f"like_{post.get('_id', 'unknown')}_{index}"):
+                    if posts_collection:
+                        # Increment like count
+                        posts_collection.update_one(
+                            {"_id": post["_id"]},
+                            {"$inc": {"likes": 1}}
+                        )
+                        # Update user reaction status
+                        st.session_state.user_reactions[reaction_key] = True
+                        st.rerun()
         
         if post.get("comments"):
             st.write(f"{len(post['comments'])} Comments:")
@@ -165,22 +199,17 @@ def create_community_post_card(post):
         
         st.markdown("---")
 
-def create_qa_card(question, index="0"):
-    """Create a styled card for a Q&A question"""
+def create_qa_card(question, index):
+    """Create a card for displaying a Q&A question"""
     with st.container():
-        st.subheader(question["title"])
-        st.caption(f"Asked by {question['username']} on {format_timestamp(question['created_at'])} | Topic: {question['topic']}")
-        st.write(question["content"])
-        
+        st.subheader(question.get("title", "Untitled Question"))
+        st.write(question.get("content", ""))
+        st.caption(f"Topic: {question.get('topic', 'Unspecified')}")
+        st.caption(f"Posted by {question.get('username', 'Anonymous')} on {format_timestamp(question.get('created_at'))}")
         if question.get("answered"):
-            with st.expander("View Answer", expanded=False):
-                st.write(question["ai_answer"])
+            st.markdown("### Answer:")
+            st.markdown(question.get("ai_answer", ""))
         else:
-            st.info("This question is pending an answer.")
+            st.info("This question is waiting for an answer.")
         
-        col1, col2 = st.columns([1, 10])
-        with col1:
-            # Add unique index to prevent duplicate keys
-            st.button(f"👍 {question['likes']}", key=f"like_q_{question.get('_id', 'unknown')}_{index}")
-        
-        st.markdown("---")
+        st.divider()

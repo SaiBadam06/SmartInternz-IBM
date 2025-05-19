@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from pages.utils import display_progress_chart, display_score_chart, display_summary_metrics, display_radar_chart
-from database import get_learning_stats, get_course_recommendations
+from database import get_learning_stats, get_course_recommendations, enroll_in_course
 
 def show_dashboard(db):
     """Display the dashboard page with learning statistics and recommendations"""
@@ -78,7 +78,12 @@ def show_dashboard(db):
                 with col:
                     st.markdown(f"**{course['title']}**")
                     st.caption(f"{course['category']} | {course['difficulty'].capitalize()}")
-                    st.button("Enroll", key=f"overview_enroll_{i}")
+                    if st.button("Enroll", key=f"overview_enroll_{course['_id']}"):
+                        if enroll_in_course(db, user_id, course["_id"]):
+                            st.success(f"Successfully enrolled in {course['title']}!")
+                            st.rerun()
+                        else:
+                            st.error("Failed to enroll in the course. Please try again.")
         else:
             st.info("Complete more courses to get personalized recommendations.")
     

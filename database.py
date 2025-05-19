@@ -202,37 +202,102 @@ def create_initial_data(db):
     # Create courses collection if it doesn't exist
     if "courses" not in db.list_collection_names():
         courses_collection = db["courses"]
-        # Add some demo courses
-        demo_courses = [
+        # Add sample courses with real materials
+        sample_courses = [
             {
                 "_id": "course_python_basics",
                 "title": "Python Programming Basics",
-                "description": "An introduction to Python programming language fundamentals.",
+                "description": "An introduction to Python programming language fundamentals with practical examples and exercises.",
                 "category": "Computer Science",
                 "difficulty": "beginner",
                 "topics": ["variables", "data types", "control flow", "functions"],
+                "materials": [
+                    {
+                        "id": "python_w3schools",
+                        "title": "Python Tutorial - W3Schools",
+                        "type": "url",
+                        "url": "https://www.w3schools.com/python/"
+                    },
+                    {
+                        "id": "python_docs",
+                        "title": "Python Official Documentation",
+                        "type": "url",
+                        "url": "https://docs.python.org/3/tutorial/"
+                    }
+                ],
                 "created_at": datetime.now()
             },
             {
                 "_id": "course_data_science_intro",
                 "title": "Introduction to Data Science",
-                "description": "Learn the fundamentals of data science with Python.",
+                "description": "Learn the fundamentals of data science with Python, including data analysis, visualization, and basic machine learning.",
                 "category": "Data Science",
                 "difficulty": "intermediate",
                 "topics": ["data analysis", "visualization", "statistics", "machine learning basics"],
+                "materials": [
+                    {
+                        "id": "data_science_coursera",
+                        "title": "Data Science Specialization - Coursera",
+                        "type": "url",
+                        "url": "https://www.coursera.org/specializations/jhu-data-science"
+                    },
+                    {
+                        "id": "pandas_docs",
+                        "title": "Pandas Documentation",
+                        "type": "url",
+                        "url": "https://pandas.pydata.org/docs/"
+                    }
+                ],
                 "created_at": datetime.now()
             },
             {
-                "_id": "course_math_algebra",
-                "title": "Algebra Fundamentals",
-                "description": "Master algebraic concepts for academic success.",
-                "category": "Mathematics",
-                "difficulty": "intermediate",
-                "topics": ["equations", "functions", "graphing", "polynomials"],
+                "_id": "course_web_dev",
+                "title": "Web Development Fundamentals",
+                "description": "Master the basics of web development including HTML, CSS, and JavaScript.",
+                "category": "Computer Science",
+                "difficulty": "beginner",
+                "topics": ["HTML", "CSS", "JavaScript", "Web Design"],
+                "materials": [
+                    {
+                        "id": "mdn_web",
+                        "title": "MDN Web Docs",
+                        "type": "url",
+                        "url": "https://developer.mozilla.org/en-US/docs/Learn"
+                    },
+                    {
+                        "id": "freecodecamp",
+                        "title": "FreeCodeCamp Web Development",
+                        "type": "url",
+                        "url": "https://www.freecodecamp.org/learn/responsive-web-design/"
+                    }
+                ],
+                "created_at": datetime.now()
+            },
+            {
+                "_id": "course_machine_learning",
+                "title": "Machine Learning Fundamentals",
+                "description": "Learn the core concepts of machine learning and implement them using Python.",
+                "category": "Data Science",
+                "difficulty": "advanced",
+                "topics": ["supervised learning", "unsupervised learning", "neural networks", "deep learning"],
+                "materials": [
+                    {
+                        "id": "ml_coursera",
+                        "title": "Machine Learning by Andrew Ng",
+                        "type": "url",
+                        "url": "https://www.coursera.org/learn/machine-learning"
+                    },
+                    {
+                        "id": "scikit_learn",
+                        "title": "Scikit-learn Documentation",
+                        "type": "url",
+                        "url": "https://scikit-learn.org/stable/"
+                    }
+                ],
                 "created_at": datetime.now()
             }
         ]
-        courses_collection.insert_many(demo_courses)
+        courses_collection.insert_many(sample_courses)
     
     # Create assessments collection if it doesn't exist
     if "assessments" not in db.list_collection_names():
@@ -616,3 +681,109 @@ def update_qa_answer(db, question_id, ai_answer):
             }
         }
     )
+
+def enroll_in_course(db, user_id, course_id):
+    """Enroll a user in a course"""
+    try:
+        # Add to progress collection
+        progress_collection = db["progress"]
+        progress_collection.insert_one({
+            "user_id": user_id,
+            "course_id": course_id,
+            "enrolled_at": datetime.now(),
+            "status": "in_progress",
+            "progress": 0
+        })
+        return True
+    except Exception as e:
+        st.error(f"Failed to enroll in course: {e}")
+        return False
+
+def unenroll_from_course(db, user_id, course_id):
+    """Remove a user's enrollment from a course"""
+    try:
+        progress_collection = db["progress"]
+        progress_collection.delete_one({
+            "user_id": user_id,
+            "course_id": course_id
+        })
+        return True
+    except Exception as e:
+        st.error(f"Failed to unenroll from course: {e}")
+        return False
+
+def update_user_material(db, material_id, updates):
+    """Update a user's material with new content"""
+    try:
+        materials_collection = db["user_materials"]
+        updates["last_edited"] = datetime.now()
+        materials_collection.update_one(
+            {"_id": material_id},
+            {"$set": updates}
+        )
+        return True
+    except Exception as e:
+        st.error(f"Failed to update material: {e}")
+        return False
+
+def update_post_reaction(db, post_id, user_id, reaction_type):
+    """Update a post's reaction count and track user reactions"""
+    try:
+        posts_collection = db["community_posts"]
+        
+        # Get the current post
+        post = posts_collection.find_one({"_id": post_id})
+        if not post:
+            return False
+        
+        # Initialize reactions if they don't exist
+        if "reactions" not in post:
+            post["reactions"] = {}
+        
+        # Check if user has already reacted
+        user_reactions = post.get("user_reactions", {})
+        current_reaction = user_reactions.get(user_id)
+        
+        # If user is removing their reaction
+        if current_reaction == reaction_type:
+            # Remove the reaction
+            posts_collection.update_one(
+                {"_id": post_id},
+                {
+                    "$inc": {f"{reaction_type}s": -1},
+                    "$unset": {f"user_reactions.{user_id}": ""}
+                }
+            )
+        else:
+            # If user had a different reaction, remove it first
+            if current_reaction:
+                posts_collection.update_one(
+                    {"_id": post_id},
+                    {"$inc": {f"{current_reaction}s": -1}}
+                )
+            
+            # Add the new reaction
+            posts_collection.update_one(
+                {"_id": post_id},
+                {
+                    "$inc": {f"{reaction_type}s": 1},
+                    "$set": {f"user_reactions.{user_id}": reaction_type}
+                }
+            )
+        
+        return True
+    except Exception as e:
+        st.error(f"Failed to update reaction: {e}")
+        return False
+
+def delete_material(db, material_id):
+    """Delete a material from the database"""
+    try:
+        materials_collection = db["user_materials"]
+        result = materials_collection.delete_one({"_id": material_id})
+        if result.deleted_count > 0:
+            return True
+        return False
+    except Exception as e:
+        st.error(f"Failed to delete material: {e}")
+        return False

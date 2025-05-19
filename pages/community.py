@@ -1,6 +1,7 @@
 import streamlit as st
-from database import add_community_post
+from database import add_community_post, update_post_reaction
 from pages.utils import create_community_post_card, format_timestamp
+from datetime import datetime
 
 def show_community(db):
     """Display the community page"""
@@ -61,34 +62,74 @@ def show_community_posts(db):
     if posts:
         # Display posts
         for post in posts:
-            create_community_post_card(post)
-            
-            # Comment form (displayed under each post)
-            with st.expander("Add a comment"):
-                comment_content = st.text_area("Your comment", key=f"comment_{post.get('_id', 'unknown')}")
+            with st.container():
+                # Post content
+                st.subheader(post.get("title", "Untitled"))
+                st.write(post.get("content", ""))
+                st.caption(f"Posted by {post.get('username', 'Anonymous')} on {format_timestamp(post.get('created_at'))}")
                 
-                if st.button("Submit", key=f"submit_comment_{post.get('_id', 'unknown')}"):
-                    if comment_content:
-                        # Add the comment to the post
+                # Reactions
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    # Like reaction
+                    like_count = post.get("likes", 0)
+                    if st.button(f"👍 {like_count}", key=f"like_{post['_id']}"):
                         user_id = st.session_state.get("user_id", "demo_student_id")
-                        username = st.session_state.get("username", "Demo Student")
-                        
-                        comment = {
-                            "user_id": user_id,
-                            "username": username,
-                            "content": comment_content,
-                            "created_at": st.session_state.get("now", None)
-                        }
-                        
-                        posts_collection.update_one(
-                            {"_id": post["_id"]},
-                            {"$push": {"comments": comment}}
-                        )
-                        
-                        st.success("Comment added!")
+                        update_post_reaction(db, post["_id"], user_id, "like")
                         st.rerun()
-                    else:
-                        st.warning("Please enter a comment.")
+                
+                with col2:
+                    # Love reaction
+                    love_count = post.get("loves", 0)
+                    if st.button(f"❤️ {love_count}", key=f"love_{post['_id']}"):
+                        user_id = st.session_state.get("user_id", "demo_student_id")
+                        update_post_reaction(db, post["_id"], user_id, "love")
+                        st.rerun()
+                
+                with col3:
+                    # Insightful reaction
+                    insight_count = post.get("insights", 0)
+                    if st.button(f"💡 {insight_count}", key=f"insight_{post['_id']}"):
+                        user_id = st.session_state.get("user_id", "demo_student_id")
+                        update_post_reaction(db, post["_id"], user_id, "insight")
+                        st.rerun()
+                
+                st.divider()
+                
+                # Comments section
+                with st.expander("Comments"):
+                    # Display existing comments
+                    comments = post.get("comments", [])
+                    if comments:
+                        for comment in comments:
+                            st.write(f"**{comment.get('username', 'Anonymous')}**: {comment.get('content', '')}")
+                            st.caption(format_timestamp(comment.get('created_at')))
+                    
+                    # Add new comment
+                    comment_content = st.text_area("Add a comment", key=f"comment_{post['_id']}")
+                    
+                    if st.button("Submit", key=f"submit_comment_{post['_id']}"):
+                        if comment_content:
+                            user_id = st.session_state.get("user_id", "demo_student_id")
+                            username = st.session_state.get("username", "Demo Student")
+                            
+                            comment = {
+                                "user_id": user_id,
+                                "username": username,
+                                "content": comment_content,
+                                "created_at": datetime.now()
+                            }
+                            
+                            posts_collection.update_one(
+                                {"_id": post["_id"]},
+                                {"$push": {"comments": comment}}
+                            )
+                            
+                            st.success("Comment added!")
+                            st.rerun()
+                        else:
+                            st.warning("Please enter a comment.")
     else:
         st.info("No posts found matching your criteria.")
 

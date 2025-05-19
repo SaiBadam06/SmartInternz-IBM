@@ -1,8 +1,13 @@
 import streamlit as st
-from database import get_user_courses
+from database import get_user_courses, enroll_in_course, unenroll_from_course, update_user_material
 from pages.utils import create_course_card
 from ai_engine import generate_content, summarize_learning_material
 from datetime import datetime
+import webbrowser
+import base64
+import docx
+from docx.shared import Inches
+from io import BytesIO
 
 def show_courses(db, ai_models):
     """Display the courses and materials page"""
@@ -32,8 +37,59 @@ def show_my_courses(db, user_id):
     
     if user_courses:
         for course in user_courses:
-            # Display course information in a card
-            create_course_card(course, is_enrolled=True)
+            # Create a container for each course
+            with st.container():
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    # Display course information
+                    st.subheader(course.get("title", "Untitled Course"))
+                    st.write(f"Category: {course.get('category', 'Uncategorized')}")
+                    st.write(f"Difficulty: {course.get('difficulty', 'Not specified')}")
+                    
+                    # Display course materials
+                    if "materials" in course:
+                        st.write("Course Materials:")
+                        for material in course["materials"]:
+                            material_type = material.get("type", "Unknown")
+                            material_title = material.get("title", "Untitled")
+                            
+                            if material_type == "pdf":
+                                if st.button(f"📄 {material_title}", key=f"pdf_{material['id']}"):
+                                    # Handle PDF viewing
+                                    pdf_url = material.get("url")
+                                    if pdf_url:
+                                        webbrowser.open(pdf_url)
+                            elif material_type == "url":
+                                if st.button(f"🌐 {material_title}", key=f"url_{material['id']}"):
+                                    # Open URL in browser
+                                    webbrowser.open(material.get("url"))
+                            elif material_type == "text":
+                                if st.button(f"📝 {material_title}", key=f"text_{material['id']}"):
+                                    # Show text content in expander
+                                    with st.expander("View Content"):
+                                        st.write(material.get("content"))
+                
+                with col2:
+                    # Continue Learning button
+                    if st.button("Continue Learning", key=f"continue_{course['_id']}"):
+                        # Get the last accessed material or first material
+                        materials = course.get("materials", [])
+                        if materials:
+                            last_material = materials[0]  # For now, just get the first material
+                            material_type = last_material.get("type", "")
+                            material_url = last_material.get("url", "")
+                            
+                            if material_type == "pdf" or material_type == "url":
+                                webbrowser.open(material_url)
+                            elif material_type == "text":
+                                st.session_state.current_material = last_material
+                                st.rerun()
+                    
+                    # Unenroll button
+                    if st.button("Unenroll", key=f"unenroll_{course['_id']}"):
+                        unenroll_from_course(db, user_id, course["_id"])
+                        st.rerun()
     else:
         st.info("You are not enrolled in any courses yet. Explore courses to get started with your learning journey.")
 
@@ -79,17 +135,62 @@ def show_explore_courses(db, user_id):
     
     if courses:
         for course in courses:
-            create_course_card(course, is_enrolled=False)
+            with st.container():
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    # Display course information
+                    st.subheader(course.get("title", "Untitled Course"))
+                    st.write(f"Category: {course.get('category', 'Uncategorized')}")
+                    st.write(f"Difficulty: {course.get('difficulty', 'Not specified')}")
+                    st.write(course.get("description", "No description available"))
+                    
+                    # Display available materials
+                    if "materials" in course:
+                        st.write("Available Materials:")
+                        for material in course["materials"]:
+                            material_type = material.get("type", "Unknown")
+                            material_title = material.get("title", "Untitled")
+                            
+                            if material_type == "pdf":
+                                st.write(f"📄 {material_title}")
+                                if st.button("View PDF", key=f"view_pdf_{material['id']}"):
+                                    webbrowser.open(material.get("url"))
+                            elif material_type == "url":
+                                st.write(f"🌐 {material_title}")
+                                if st.button("Visit Website", key=f"visit_{material['id']}"):
+                                    webbrowser.open(material.get("url"))
+                            elif material_type == "text":
+                                st.write(f"📝 {material_title}")
+                                if st.button("View Content", key=f"view_{material['id']}"):
+                                    with st.expander("Material Content"):
+                                        st.write(material.get("content"))
+                
+                with col2:
+                    # Enroll button
+                    if st.button("Enroll", key=f"enroll_{course['_id']}"):
+                        enroll_in_course(db, user_id, course["_id"])
+                        st.success("Successfully enrolled in the course!")
+                        st.rerun()
+                    
+                    # Add to Practice Questions button
+                    if st.button("Add to Practice Questions", key=f"practice_{course['_id']}"):
+                        # Add to user's practice questions
+                        practice_collection = db["practice_questions"]
+                        practice_collection.insert_one({
+                            "user_id": user_id,
+                            "course_id": course["_id"],
+                            "course_title": course.get("title", "Untitled Course"),
+                            "added_at": datetime.now(),
+                            "status": "pending"
+                        })
+                        st.success("Added to practice questions!")
     else:
         st.info("No courses found matching your criteria.")
 
 def show_add_your_material(db, user_id):
     """Show interface for adding user's own learning materials"""
     st.header("Add Your Material")
-    
-    st.markdown("""
-    Add your own learning materials or course links to keep track of your resources in one place.
-    """)
     
     # Initialize form state if not present
     if "material_form_state" not in st.session_state:
@@ -99,14 +200,16 @@ def show_add_your_material(db, user_id):
             "url": "",
             "text_content": "",
             "category": "Computer Science",
-            "difficulty": "intermediate"
+            "difficulty": "intermediate",
+            "highlights": [],
+            "images": []
         }
     
     # Create a container for the dynamic form
     form_container = st.container()
     
     with form_container:
-        # Title input (outside the dynamic part)
+        # Title input
         title = st.text_input(
             "Title", 
             value=st.session_state.material_form_state["title"],
@@ -139,33 +242,56 @@ def show_add_your_material(db, user_id):
             st.session_state.material_form_state["url"] = source
             
         elif source_type == "Text Note":
+            # Rich text editor for notes
             content = st.text_area(
                 "Material Content", 
                 value=st.session_state.material_form_state["text_content"],
                 height=200, 
                 placeholder="Enter your notes or material content here..."
             )
-            st.session_state.material_form_state["text_content"] = content
             
-        else:  # Upload Notes
-            st.markdown("#### Upload your notes file (PDF, DOCX, TXT)")
-            uploaded_file = st.file_uploader(
-                "Choose a file", 
-                type=["pdf", "docx", "txt"], 
-                label_visibility="collapsed"
+            # Add highlight button
+            if st.button("Add Highlight"):
+                highlight_text = st.text_input("Enter text to highlight")
+                if highlight_text:
+                    st.session_state.material_form_state["highlights"].append(highlight_text)
+            
+            # Display current highlights
+            if st.session_state.material_form_state["highlights"]:
+                st.write("Current Highlights:")
+                for i, highlight in enumerate(st.session_state.material_form_state["highlights"]):
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.markdown(f"**{highlight}**")
+                    with col2:
+                        if st.button("Remove", key=f"remove_highlight_{i}"):
+                            st.session_state.material_form_state["highlights"].pop(i)
+                            st.rerun()
+            
+            # Image upload
+            uploaded_images = st.file_uploader(
+                "Add Images to Notes",
+                type=["png", "jpg", "jpeg"],
+                accept_multiple_files=True
             )
             
-            if uploaded_file is not None:
-                st.success(f"File selected: {uploaded_file.name}")
-                
-                # Preview button for text files
-                if uploaded_file.name.endswith('.txt'):
-                    if st.button("Preview Text Content"):
-                        file_bytes = uploaded_file.read()
-                        preview_content = file_bytes.decode('utf-8')
-                        st.text_area("File Preview", preview_content[:1000] + ("..." if len(preview_content) > 1000 else ""), height=200)
-                        # Reset file position
-                        uploaded_file.seek(0)
+            if uploaded_images:
+                for image in uploaded_images:
+                    image_bytes = image.read()
+                    image_b64 = base64.b64encode(image_bytes).decode()
+                    st.session_state.material_form_state["images"].append({
+                        "name": image.name,
+                        "data": image_b64
+                    })
+            
+            st.session_state.material_form_state["text_content"] = content
+            
+        elif source_type == "Upload Notes":
+            uploaded_file = st.file_uploader(
+                "Upload Notes",
+                type=["txt", "docx"],
+                key="material_upload"
+            )
         
         # Category selection
         categories = ["Computer Science", "Data Science", "Mathematics", "Language Learning", "Science", "Other"]
@@ -194,16 +320,16 @@ def show_add_your_material(db, user_id):
             elif source_type == "Text Note" and title and content:
                 valid_submission = True
             elif source_type == "Upload Notes" and title and uploaded_file is not None:
-                # Process the uploaded file
                 try:
                     file_bytes = uploaded_file.read()
                     file_name = uploaded_file.name
                     
-                    # For text files, we can read the content
                     if file_name.endswith('.txt'):
                         file_content = file_bytes.decode('utf-8')
+                    elif file_name.endswith('.docx'):
+                        doc = docx.Document(BytesIO(file_bytes))
+                        file_content = "\n".join([paragraph.text for paragraph in doc.paragraphs])
                     else:
-                        # For binary files like PDF/DOCX, we just note the file name
                         file_content = f"Uploaded file: {file_name}"
                         
                     valid_submission = True
@@ -223,7 +349,10 @@ def show_add_your_material(db, user_id):
                     "file_name": file_name if source_type == "Upload Notes" else None,
                     "category": category,
                     "difficulty": difficulty,
-                    "created_at": datetime.now()
+                    "created_at": datetime.now(),
+                    "highlights": st.session_state.material_form_state["highlights"],
+                    "images": st.session_state.material_form_state["images"],
+                    "last_edited": datetime.now()
                 }
                 
                 materials_collection.insert_one(material)
@@ -236,60 +365,84 @@ def show_add_your_material(db, user_id):
                     "url": "",
                     "text_content": "",
                     "category": "Computer Science",
-                    "difficulty": "intermediate"
+                    "difficulty": "intermediate",
+                    "highlights": [],
+                    "images": []
                 }
                 st.rerun()
             else:
                 st.toast("Please fill in all required fields", icon="⚠️")
     
     # Display saved materials
-    st.subheader("My Saved Materials")
+    st.subheader("My Materials")
     
-    # Query the database for saved materials
+    # Query the database for user's materials
     materials_collection = db["user_materials"]
     saved_materials = list(materials_collection.find({"user_id": user_id}))
     
     if saved_materials:
-        for i, material in enumerate(saved_materials):
-            with st.expander(f"{material['title']} ({material['difficulty']})"):
-                if material["source_type"] == "URL":
-                    st.markdown(f"**URL**: [{material['source']}]({material['source']})")
-                    st.markdown(f"**Category**: {material['category']}")
+        for material in saved_materials:
+            with st.expander(f"{material['title']} ({material['category']})"):
+                # Display material content
+                if material["source_type"] == "Text Note":
+                    st.write(material["content"])
                     
-                    # Add a button to mark as current material
-                    if st.button("Set as Current Material", key=f"current_{i}"):
-                        if "current_material" not in st.session_state:
-                            st.session_state["current_material"] = {}
-                        
-                        st.session_state["current_material"] = {
-                            "title": material["title"],
-                            "source": material["source"],
-                            "category": material["category"],
-                            "id": material.get("_id", "")
-                        }
-                        st.toast(f"Now learning: {material['title']}", icon="📚")
+                    # Display highlights
+                    if material.get("highlights"):
+                        st.write("Highlights:")
+                        for highlight in material["highlights"]:
+                            st.markdown(f"**{highlight}**")
+                    
+                    # Display images
+                    if material.get("images"):
+                        st.write("Images:")
+                        for image in material["images"]:
+                            st.image(base64.b64decode(image["data"]), caption=image["name"])
+                    
+                    # Edit and Delete buttons
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("Edit Material", key=f"edit_{material['_id']}"):
+                            st.session_state.material_form_state = {
+                                "title": material["title"],
+                                "source_type": material["source_type"],
+                                "text_content": material["content"],
+                                "category": material["category"],
+                                "difficulty": material["difficulty"],
+                                "highlights": material.get("highlights", []),
+                                "images": material.get("images", [])
+                            }
+                            st.rerun()
+                    with col2:
+                        if st.button("Delete Material", key=f"delete_{material['_id']}"):
+                            if st.button("Confirm Delete", key=f"confirm_delete_{material['_id']}"):
+                                materials_collection.delete_one({"_id": material["_id"]})
+                                st.success("Material deleted successfully!")
+                                st.rerun()
+                elif material["source_type"] == "URL":
+                    st.write(f"URL: {material['source']}")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("Open URL", key=f"url_{material['_id']}"):
+                            webbrowser.open(material["source"])
+                    with col2:
+                        if st.button("Delete Material", key=f"delete_{material['_id']}"):
+                            if st.button("Confirm Delete", key=f"confirm_delete_{material['_id']}"):
+                                materials_collection.delete_one({"_id": material["_id"]})
+                                st.success("Material deleted successfully!")
+                                st.rerun()
                 else:
-                    st.markdown(f"**Category**: {material['category']}")
-                    st.markdown("**Content**:")
-                    st.markdown(material["content"])
-                    
-                    # Add a button to mark as current material
-                    if st.button("Set as Current Material", key=f"current_{i}"):
-                        if "current_material" not in st.session_state:
-                            st.session_state["current_material"] = {}
-                        
-                        st.session_state["current_material"] = {
-                            "title": material["title"],
-                            "content": material["content"][:50] + "...",
-                            "category": material["category"],
-                            "id": material.get("_id", "")
-                        }
-                        st.toast(f"Now learning: {material['title']}", icon="📚")
-                
-                # Option to delete this material
-                if st.button("Delete", key=f"delete_{i}"):
-                    materials_collection.delete_one({"_id": material["_id"]})
-                    st.toast("Material deleted!", icon="🗑️")
-                    st.rerun()
+                    st.write(f"File: {material['file_name']}")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("Download File", key=f"download_{material['_id']}"):
+                            # Handle file download
+                            pass
+                    with col2:
+                        if st.button("Delete Material", key=f"delete_{material['_id']}"):
+                            if st.button("Confirm Delete", key=f"confirm_delete_{material['_id']}"):
+                                materials_collection.delete_one({"_id": material["_id"]})
+                                st.success("Material deleted successfully!")
+                                st.rerun()
     else:
-        st.info("You don't have any saved materials yet.")
+        st.info("You haven't added any materials yet.")
