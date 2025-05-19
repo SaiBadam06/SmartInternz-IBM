@@ -1,0 +1,50 @@
+1. What is the uniqueness added by you to the solution. Also. if there are solutions in the market to similar challenges, what is the innovation you propose to make your solution better.
+A. Personalized learning, automated assessment, and teacher support — into one smart, AI-driven system. While many educational platforms today focus on just one aspect, like delivering video lessons or grading quizzes, EduTutor AI takes it further by using advanced generative AI (IBM Granite LLM) to create tailored learning materials and real-time feedback based on each student’s needs. This means students aren’t just consuming content — they’re getting content made specifically for them, based on their pace, strengths, and struggles. Another innovation is our smart feedback and planning loop. As students interact with the system, EduTutor AI continuously learns and adapts — not only personalizing the experience for the student but also offering teachers clear, data-driven suggestions on how to better support their class. Unlike other tools that just show scores or progress bars, our platform offers meaningful insights and instructional advice. Compared to current solutions like Khan Academy or Gradescope, EduTutor AI stands out by combining real-time adaptability with proactive teaching support. It doesn’t replace educators — it empowers them, and at the same time, it helps students learn more effectively through truly personalized, AI-powered experiences.
+4. Architectural flow of the proposed solution, with the mention of technologies to be used in developing solution.
+A. Programming Language: Python
+User Interface: Stream lit
+AI & NLP Models: IBM Granite LLM &Hugging Face Transformers
+Data Processing: Pandas & NumPy
+Development Environment: Jupyter Notebook & Google Colab
+
+Architectural Flow
+1. Users access the platform through a Streamlit-based web interface.
+2. Student input and activity data are collected and processed using Pandas and NumPy.
+3. AI engine (Granite LLM + Hugging Face) generates personalized content and feedback.
+4. Lang-Chain orchestrates model outputs and ensures smooth data flow.
+5. Assessments are automatically graded, and performance feedback is delivered instantly.
+6. A recommendation engine suggests next steps for both students and teachers.
+7. Data is stored securely in the cloud and visualized via dynamic dashboards.
+8. The system continuously learns from user interaction to improve recommendations and outcomes.
+
+
+5. Define the scope of work to be implemented in the project with modules etc.
+A. The scope of the EduTutor AI project focuses on building a smart, user-friendly platform that personalizes learning for students and reduces the workload for teachers. The system will include several key modules to ensure a smooth and effective experience. First, there will be a User Management module to handle student and teacher accounts, profiles, and learning preferences. The heart of the platform is the Personalized Learning Engine, which uses AI to create customized learning paths and content for each student based on their performance and needs.
+
+The Assessment and Auto-Grading module will allow teachers to create quizzes, and the system will automatically grade both objective and short-answer questions using natural language processing. A Content Generation module will use AI to generate study material and practice questions on demand, making learning more engaging. The Recommendation System will suggest next steps for students and provide teaching tips for educators.
+
+To help track progress, the Analytics Dashboard will give students and teachers clear insights into performance and learning gaps. All data will be stored securely in the cloud, and the platform will be accessible through a simple, mobile-friendly web interface. In short, EduTutor AI will be a complete, intelligent assistant for modern learning.
+
+
+i have gave the entire details of what project is to be created and what type of ttols to be used and below are links to the tools.
+
+Generative AI Model - https://huggingface.co/ibm-granite/granite-3.3-2b-instruct
+
+Programming Language - Python
+
+Frameworks and libraries - LangChain, Hugging face,pandas, numpy,
+
+i want a fully functional web application, and make sure first generate a web application without login and just provide a ui where i can first test the functionality or working of the features you have generated into the application.
+
+You can use "MONGO_URI=mongodb+srv://badamdeekshith:xeWmNvCbbzOi7yL7@cluster0.aecpd6m.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+"
+
+api key to use the my mongodb cluster, where i created IBM database. add teh requires collections and tables as per the requirements of the application.
+
+i want you to keep 4 main sections. 1. Dashboard, wher the student can view his progress and the things he learnt and  get suggestions.
+2. courses&materials page, where the student can find available courses to learn, add any courses of his liking, what he wants to do or any important notes he want to learn
+3. asssesments page, where the student can work on assesments nad give tests
+4. Community page, where the students with like minded mentality come together and do something interactive and useful
+5. Q&A place, where the students can ask any doubts regarding their subjects.
+
+make the website extravagant, sophisticated and interacton also eyecathy.
